@@ -97,7 +97,7 @@
                             Margin="6,0"
                             Style="{StaticResource SeekSliderStyle}"
                             Minimum="0"
-                            Maximum="{Binding DurationSeconds, Mode=OneWay}"
+                            Maximum="{Binding SeekMaximum, Mode=OneWay}"
                             Value="{Binding SeekValue, Mode=TwoWay}"
                             IsEnabled="{Binding CanSeek}"
                             Thumb.DragCompleted="OnSeekDragCompleted" />

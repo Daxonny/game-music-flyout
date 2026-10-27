@@ -168,9 +168,13 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _durationSeconds, value))
             {
                 OnPropertyChanged(nameof(TotalText));
+                OnPropertyChanged(nameof(SeekMaximum));
             }
         }
     }
+
+    /// <summary>Slider range; never 0, because a 0–0 slider renders as completely filled.</summary>
+    public double SeekMaximum => DurationSeconds > 0 ? DurationSeconds : 1;
 
     public string ElapsedText => FormatTime(PositionSeconds);
     public string TotalText => DurationSeconds > 0 ? FormatTime(DurationSeconds) : "--:--";
