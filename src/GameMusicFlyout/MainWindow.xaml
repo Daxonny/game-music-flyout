@@ -1,0 +1,155 @@
+<Window x:Class="GameMusicFlyout.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Game Music Flyout"
+        Width="396"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        Topmost="True"
+        ShowInTaskbar="False"
+        WindowStartupLocation="Manual"
+        FontFamily="Segoe UI"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        Loaded="OnLoaded">
+
+    <!-- Margin leaves room for the card's shadow inside the transparent window. -->
+    <Grid Margin="8">
+        <!-- Shadow lives on a separate layer so the effect doesn't blur the card's text. -->
+        <Border CornerRadius="10" Background="{StaticResource CardBackgroundBrush}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" />
+            </Border.Effect>
+        </Border>
+        <Border Padding="16,12,12,12"
+                CornerRadius="10"
+                Background="{StaticResource CardBackgroundBrush}"
+                BorderBrush="{StaticResource CardBorderBrush}"
+                BorderThickness="1"
+                MouseLeftButtonDown="OnCardMouseLeftButtonDown">
+            <StackPanel>
+                <!-- Title / artist-or-source, hide button -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Margin="0,2,8,0">
+                        <TextBlock Text="{Binding Title}"
+                                   ToolTip="{Binding Title}"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Subtitle}"
+                                   ToolTip="{Binding Subtitle}"
+                                   Margin="0,2,0,0"
+                                   FontSize="12.5"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Style="{StaticResource IconButtonStyle}"
+                            Width="28" Height="28" FontSize="10"
+                            VerticalAlignment="Top"
+                            Content="&#xE8BB;"
+                            ToolTip="Hide"
+                            Click="OnHideClick" />
+                </Grid>
+
+                <!-- Non-fatal status message, collapsed when empty -->
+                <TextBlock Text="{Binding StatusText}"
+                           Margin="0,6,0,0"
+                           FontSize="11.5"
+                           Foreground="#FFFFB86B"
+                           TextWrapping="Wrap">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <Trigger Property="Text" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                                <Trigger Property="Text" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- Elapsed / seek bar / total -->
+                <Grid Margin="0,10,4,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MinWidth="36" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" MinWidth="36" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="{Binding ElapsedText}"
+                               FontSize="11.5"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                    <Slider x:Name="SeekSlider"
+                            Grid.Column="1"
+                            Margin="6,0"
+                            Style="{StaticResource SeekSliderStyle}"
+                            Minimum="0"
+                            Maximum="{Binding DurationSeconds, Mode=OneWay}"
+                            Value="{Binding PositionSeconds, Mode=OneWay}"
+                            IsEnabled="{Binding CanSeek}" />
+                    <TextBlock Grid.Column="2"
+                               Text="{Binding TotalText}"
+                               FontSize="11.5"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center" />
+                </Grid>
+
+                <!-- Transport: previous / play-pause / next centered, repeat on the right -->
+                <Grid Margin="0,6,4,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="40" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="40" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Content="&#xE892;"
+                                ToolTip="Previous"
+                                Command="{Binding PreviousCommand}" />
+                        <Button Style="{StaticResource PlayButtonStyle}"
+                                Margin="14,0"
+                                Content="{Binding PlayPauseGlyph}"
+                                ToolTip="Play / Pause"
+                                Command="{Binding PlayPauseCommand}" />
+                        <Button Style="{StaticResource IconButtonStyle}"
+                                Content="&#xE893;"
+                                ToolTip="Next"
+                                Command="{Binding NextCommand}" />
+                    </StackPanel>
+
+                    <Button Grid.Column="2"
+                            Content="{Binding RepeatGlyph}"
+                            ToolTip="{Binding RepeatToolTip}"
+                            Command="{Binding CycleRepeatCommand}"
+                            VerticalAlignment="Center">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource IconButtonStyle}">
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRepeatActive}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

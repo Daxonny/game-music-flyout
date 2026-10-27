@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- The Windows SDK version in the TFM provides the WinRT projections for GSMTC (Windows.Media.Control). -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>GameMusicFlyout</RootNamespace>
+    <AssemblyName>GameMusicFlyout</AssemblyName>
+    <Product>Game Music Flyout</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+
+</Project>

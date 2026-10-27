@@ -32,12 +32,12 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 ## Steps
 
 ### 1. Solution scaffold + static mockup
-- [ ] `GameMusicFlyout.sln` + `src/GameMusicFlyout/GameMusicFlyout.csproj` with the target above
-- [ ] Folder layout from spec (`ViewModels/`, `Models/`, `Services/`, `Infrastructure/`)
-- [ ] `ObservableObject`, `AsyncCommand`
-- [ ] Static flyout card (~380 px): title, artist/source, elapsed/total + seek bar, prev / play-pause (largest) / next / repeat, hide button
-- [ ] `build.sh` sync-and-build script
-- [ ] Builds clean on Windows
+- [x] `GameMusicFlyout.sln` + `src/GameMusicFlyout/GameMusicFlyout.csproj` with the target above
+- [x] Folder layout from spec (`ViewModels/`, `Infrastructure/` now; `Models/`, `Services/` are created with their files in steps 2–4)
+- [x] `ObservableObject`, `AsyncCommand`
+- [x] Static flyout card (~380 px): title, artist/source, elapsed/total + seek bar, prev / play-pause (largest) / next / repeat, hide button (sample data in `FlyoutViewModel`; hide button exits the app until step 4 adds the tray)
+- [x] `build.sh` sync-and-build script (`./build.sh` | `./build.sh run` | `./build.sh publish`)
+- [x] Builds clean on Windows (0 warnings, 0 errors)
 
 ### 2. GSMTC media session service
 - [ ] `TrackSnapshot`, `PlaybackSnapshot` models
@@ -73,4 +73,5 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 
 ## Session log
 
-- 2026-10-27: Read spec, verified environment, wrote this plan. Initialized git. Implementation not started.
+- 2026-10-27: Read spec, verified environment, wrote this plan. Initialized git.
+- 2026-10-27: Step 1 done. Builds clean. Visual check of the mockup not done by Claude (a screen-capture script was blocked by permissions); user to run `./build.sh run` and look. Next: step 2.
