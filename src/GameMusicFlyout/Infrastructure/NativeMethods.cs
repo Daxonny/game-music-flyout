@@ -27,6 +27,8 @@ internal static partial class NativeMethods
 
     public const int VK_CONTROL = 0x11;
 
+    public const uint MAPVK_VK_TO_CHAR = 2;
+
     public static readonly IntPtr HWND_TOPMOST = new(-1);
 
     [StructLayout(LayoutKind.Sequential)]
@@ -78,4 +80,7 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll")]
     public static partial short GetAsyncKeyState(int vKey);
+
+    [LibraryImport("user32.dll", EntryPoint = "MapVirtualKeyW")]
+    public static partial uint MapVirtualKey(uint uCode, uint uMapType);
 }

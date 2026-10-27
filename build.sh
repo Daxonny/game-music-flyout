@@ -2,7 +2,7 @@
 # Sync the canonical WSL source to a disposable Windows build mirror and build/publish/run there.
 #
 #   ./build.sh            Debug build
-#   ./build.sh publish    Release, self-contained win-x64 publish
+#   ./build.sh publish    Release, self-contained single-file win-x64 .exe (no .NET install needed)
 #   ./build.sh run        Debug build, then launch the app on Windows
 #
 # The mirror is only a build copy: never edit files there. It is marked with a sentinel
@@ -29,7 +29,7 @@ if [[ -d "$MIRROR_DIR" && ! -f "$MIRROR_DIR/$SENTINEL" && -n "$(ls -A "$MIRROR_D
     exit 1
 fi
 
-if [[ "$MODE" != "publish" ]] && tasklist.exe /FI "IMAGENAME eq GameMusicFlyout.exe" /NH 2>/dev/null | grep -qi "GameMusicFlyout.exe"; then
+if tasklist.exe /FI "IMAGENAME eq GameMusicFlyout.exe" /NH 2>/dev/null | grep -qi "GameMusicFlyout.exe"; then
     echo "error: GameMusicFlyout is running, so its .exe is locked. Exit it (✕ on the flyout) and build again." >&2
     exit 1
 fi
@@ -58,8 +58,14 @@ case "$MODE" in
         EXE_WIN="$MIRROR_WIN\\src\\GameMusicFlyout\\bin\\Debug\\net10.0-windows10.0.19041.0\\GameMusicFlyout.exe"
         ;;
     publish)
-        echo "==> dotnet publish (Release, win-x64, self-contained)"
+        echo "==> dotnet publish (Release, win-x64, self-contained, single file)"
+        # WPF doesn't support trimming. Compression is off on purpose: it cut the .exe from ~190 MB to ~78 MB
+        # but more than doubled RAM (68 -> 149 MB private), because compressed code is unpacked into memory.
         "$DOTNET" publish "$PROJECT_REL" -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=false \
+            -p:DebugType=none \
             -o "$MIRROR_WIN\\publish" -nologo -v minimal 2>&1 | tr -d '\r'
         EXE_WIN="$MIRROR_WIN\\publish\\GameMusicFlyout.exe"
         ;;

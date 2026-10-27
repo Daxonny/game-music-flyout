@@ -18,7 +18,7 @@ public partial class HotkeyDialog : Window
         InitializeComponent();
         _apply = apply;
         _candidate = current;
-        ShortcutText.Text = current?.ToString() ?? "Press keys…";
+        ShortcutText.Text = current?.DisplayText ?? "Press keys…";
         SaveButton.IsEnabled = false;
     }
 
@@ -39,7 +39,7 @@ public partial class HotkeyDialog : Window
             return;
         }
 
-        ShortcutText.Text = candidate.ToString();
+        ShortcutText.Text = candidate.DisplayText;
         if (candidate.IsValid)
         {
             _candidate = candidate;
@@ -57,7 +57,7 @@ public partial class HotkeyDialog : Window
     private void OnResetClick(object sender, RoutedEventArgs e)
     {
         _candidate = Hotkey.Default;
-        ShortcutText.Text = Hotkey.Default.ToString();
+        ShortcutText.Text = Hotkey.Default.DisplayText;
         SaveButton.IsEnabled = true;
         HideError();
     }
@@ -91,5 +91,5 @@ public partial class HotkeyDialog : Window
     private void HideError() => ErrorText.Visibility = Visibility.Collapsed;
 
     private static string FormatModifiers(ModifierKeys modifiers) =>
-        new Hotkey(modifiers, Key.A).ToString()[..^2];
+        new Hotkey(modifiers, Key.A).DisplayText[..^2];
 }

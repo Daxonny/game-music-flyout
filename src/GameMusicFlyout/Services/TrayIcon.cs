@@ -85,7 +85,7 @@ public sealed class TrayIcon : IDisposable
             item.Checked = item.Tag is double preset && Math.Abs(preset - scale) < 0.001;
         }
 
-        var hotkeyText = hotkey?.ToString() ?? "none";
+        var hotkeyText = hotkey?.DisplayText ?? "none";
         _hotkeyItem.Text = $"Shortcut: {hotkeyText}…";
         _showOnStartupItem.Checked = showOnStartup;
 

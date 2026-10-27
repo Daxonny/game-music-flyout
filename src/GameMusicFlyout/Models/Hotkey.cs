@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using GameMusicFlyout.Infrastructure;
 
 namespace GameMusicFlyout.Models;
 
@@ -15,7 +16,15 @@ public sealed record Hotkey(ModifierKeys Modifiers, Key Key)
         && Key is not (Key.None or Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
             or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.System);
 
-    public override string ToString()
+    /// <summary>Stable form for the settings file, e.g. "Alt+Oem3". Round-trips through <see cref="TryParse"/>.</summary>
+    public override string ToString() => Format(KeyToString(Key));
+
+    /// <summary>
+    /// What to show the user, e.g. "Alt+`": OEM keys use the character printed on the current keyboard layout.
+    /// </summary>
+    public string DisplayText => Format(KeyToDisplayString(Key));
+
+    private string Format(string keyText)
     {
         var parts = new List<string>();
         if (Modifiers.HasFlag(ModifierKeys.Control))
@@ -38,7 +47,7 @@ public sealed record Hotkey(ModifierKeys Modifiers, Key Key)
             parts.Add("Win");
         }
 
-        parts.Add(KeyToString(Key));
+        parts.Add(keyText);
         return string.Join("+", parts);
     }
 
@@ -99,6 +108,22 @@ public sealed record Hotkey(ModifierKeys Modifiers, Key Key)
         >= Key.D0 and <= Key.D9 => ((char)('0' + (key - Key.D0))).ToString(),
         _ => key.ToString(),
     };
+
+    private static string KeyToDisplayString(Key key)
+    {
+        if (key is >= Key.Oem1 and <= Key.OemBackslash)
+        {
+            var virtualKey = (uint)KeyInterop.VirtualKeyFromKey(key);
+            // The high bit marks a dead key (e.g. accents); the low bits still hold its character.
+            var character = (char)(NativeMethods.MapVirtualKey(virtualKey, NativeMethods.MAPVK_VK_TO_CHAR) & 0x7FFF);
+            if (character != '\0' && !char.IsWhiteSpace(character))
+            {
+                return character.ToString();
+            }
+        }
+
+        return KeyToString(key);
+    }
 
     private static bool TryParseKey(string text, out Key key)
     {

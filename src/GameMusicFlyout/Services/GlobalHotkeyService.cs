@@ -112,8 +112,8 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
         var code = Marshal.GetLastPInvokeError();
         error = code == NativeMethods.ERROR_HOTKEY_ALREADY_REGISTERED
-            ? $"{hotkey} is already used by another app."
-            : $"Couldn't register {hotkey} (error {code}).";
+            ? $"{hotkey.DisplayText} is already used by another app."
+            : $"Couldn't register {hotkey.DisplayText} (error {code}).";
         return false;
     }
 

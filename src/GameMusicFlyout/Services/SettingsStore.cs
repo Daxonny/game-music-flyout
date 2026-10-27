@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using GameMusicFlyout.Models;
 
@@ -8,7 +9,12 @@ namespace GameMusicFlyout.Services;
 /// <summary>Loads and saves <see cref="AppSettings"/> as JSON. Never throws; a missing or corrupt file means defaults.</summary>
 public sealed class SettingsStore
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        // Keep "+" in shortcuts readable for hand editing. The file is local and never rendered as HTML.
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
 
     private readonly string _path;
 
