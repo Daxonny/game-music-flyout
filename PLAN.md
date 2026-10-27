@@ -72,6 +72,14 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 - [x] Manual test checklist for the user (in `README.md`, from the spec acceptance checklist)
 - [x] Extras: shortcuts are displayed with the layout's real key character (`Hotkey.DisplayText`, e.g. "Alt+`") while settings keep the stable name (`Alt+Oem3`); settings JSON no longer escapes "+"
 
+### 6. Per-app volume (user request, after MVP)
+User chose **Windows per-app volume** (Volume Mixer level of the playing app), not master volume and not the player's in-page volume (GSMTC has no volume API; page control is forbidden by the spec).
+- [x] `IAppVolumeService` + implementation on Core Audio via **NAudio.Wasapi**: find audio sessions on all active render devices whose process matches the media session's app (exe name from the AUMID, a known-app map such as Chrome/Brave/Spotify/Firefox hash, or for packaged apps the process AUMID); read/set `SimpleAudioVolume` volume and mute; follow external changes via session events; re-resolve on source change, session created, and device changes
+- [x] UI like YouTube: speaker button bottom-left (mirrors repeat on the right); hover slides out a ~64 px slider; click = mute/unmute; plain mouse wheel over it = ±5% (Ctrl+wheel still scales); icon reflects level/mute; tooltip "Chrome volume: 65%"; disabled with explanation when the app has no audio session yet
+- [x] Builds clean; README updated (feature + limits: whole browser not just the tab, multiplies with the in-page slider)
+- Volume only. No audio capture (spec privacy rule still holds).
+- Notes: sessions are looked up on demand (target change; playback started, debounced 400 ms; flyout shown; session expired or disconnected), not via session-created notifications (unreliable when registered from the STA UI thread). External volume changes are followed through `IAudioSessionEvents` on the first matched session. A read-only probe confirmed Chrome's audio session runs under process `chrome`. Also fixed: `FlyoutViewModel.cs` had raw private-use glyph characters (from a tool), now `\uXXXX` escapes.
+
 ## Cannot be verified from WSL (user must test on Windows)
 
 Runtime window behavior, global hotkey, overlay over a borderless game, real Spotify / browser GSMTC sessions, seek/repeat support per source.
@@ -90,3 +98,5 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-27: User tested step 4: all good. Ctrl+Alt+M was taken by another app on their PC; conflict notification worked and they picked another shortcut via tray. Default left as Ctrl+Alt+M.
 - 2026-10-27: User set their shortcut to Alt+~ (stored as `Alt+Oem3`). Per the user, ✕ now exits the app instead of hiding. Pending, offered for step 5: show OEM keys by their real character (e.g. "Alt+~") and write settings JSON without escaping "+".
 - 2026-10-27: Step 5 done. Published the single-file exe; it launched on Windows with no error.log (68 MB private / 132 MB working set). **MVP complete.** The published exe was left running for the user.
+- 2026-10-28: Project published to github.com/Daxonny/game-music-flyout (public; commits use the noreply email). User requested a volume control; chose per-app volume -> step 6.
+- 2026-10-28: Step 6 (per-app volume) implemented. Builds clean. Not runtime-tested by Claude (it would change the user's real volume). User to test.

@@ -29,4 +29,9 @@
     <Resource Include="Assets\app.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Core Audio (WASAPI) wrappers for per-app volume. Volume/mute only; no audio capture. -->
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+  </ItemGroup>
+
 </Project>

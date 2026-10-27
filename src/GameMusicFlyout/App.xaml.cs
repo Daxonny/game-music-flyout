@@ -17,6 +17,7 @@ public partial class App : Application
     private SettingsStore? _settingsStore;
     private AppSettings? _settings;
     private GsmTCMediaSessionService? _mediaService;
+    private AppVolumeService? _volumeService;
     private FlyoutViewModel? _viewModel;
     private OverlayWindowService? _overlay;
     private GlobalHotkeyService? _hotkeys;
@@ -45,7 +46,8 @@ public partial class App : Application
         _settings = _settingsStore.Load();
 
         _mediaService = new GsmTCMediaSessionService();
-        _viewModel = new FlyoutViewModel(_mediaService, Dispatcher);
+        _volumeService = new AppVolumeService(Dispatcher);
+        _viewModel = new FlyoutViewModel(_mediaService, _volumeService, Dispatcher);
         var window = new MainWindow { DataContext = _viewModel };
         _overlay = new OverlayWindowService(window, _settings, _settingsStore);
 
@@ -60,7 +62,15 @@ public partial class App : Application
             UpdateTray();
         };
         _tray.ExitRequested += (_, _) => Shutdown();
-        _overlay.StateChanged += (_, _) => UpdateTray();
+        _overlay.StateChanged += (_, _) =>
+        {
+            UpdateTray();
+            if (_overlay.IsShown)
+            {
+                // Volume may have become available (or the app's session changed) while hidden.
+                _volumeService.RequestRefresh();
+            }
+        };
 
         _hotkeys = new GlobalHotkeyService();
         _hotkeys.Pressed += (_, _) => _overlay.Toggle();
@@ -84,6 +94,7 @@ public partial class App : Application
         _hotkeys?.Dispose();
         _tray?.Dispose();
         _viewModel?.Dispose();
+        _volumeService?.Dispose();
         _mediaService?.Dispose();
 
         if (_singleInstanceMutex is not null)

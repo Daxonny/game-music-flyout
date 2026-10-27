@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 
 namespace GameMusicFlyout.Infrastructure;
 
-internal static partial class NativeMethods
+internal static unsafe partial class NativeMethods
 {
     public const int WM_HOTKEY = 0x0312;
 
@@ -28,6 +28,8 @@ internal static partial class NativeMethods
     public const int VK_CONTROL = 0x11;
 
     public const uint MAPVK_VK_TO_CHAR = 2;
+
+    public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 
     public static readonly IntPtr HWND_TOPMOST = new(-1);
 
@@ -83,4 +85,15 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll", EntryPoint = "MapVirtualKeyW")]
     public static partial uint MapVirtualKey(uint uCode, uint uMapType);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    public static partial IntPtr OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
+
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool CloseHandle(IntPtr hObject);
+
+    /// <summary>Returns 0 (ERROR_SUCCESS) for packaged processes; an error for unpackaged ones.</summary>
+    [LibraryImport("kernel32.dll")]
+    public static partial int GetApplicationUserModelId(IntPtr hProcess, ref uint applicationUserModelIdLength, char* applicationUserModelId);
 }

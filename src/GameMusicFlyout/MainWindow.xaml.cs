@@ -15,6 +15,9 @@ public partial class MainWindow : Window
         // The slider marks these handled itself (IsMoveToPointEnabled), so listen to handled events too.
         SeekSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnSeekPressed), handledEventsToo: true);
         SeekSlider.AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnSeekReleased), handledEventsToo: true);
+
+        // Ctrl+wheel (scaling) is handled first at window level, so this only sees plain wheel turns.
+        VolumePanel.PreviewMouseWheel += OnVolumeMouseWheel;
     }
 
     private FlyoutViewModel? ViewModel => DataContext as FlyoutViewModel;
@@ -29,6 +32,12 @@ public partial class MainWindow : Window
         {
             DragMove();
         }
+    }
+
+    private void OnVolumeMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        ViewModel?.ChangeVolumeBy(Math.Sign(e.Delta));
+        e.Handled = true;
     }
 
     private void OnSeekPressed(object sender, MouseButtonEventArgs e) => ViewModel?.BeginSeek();

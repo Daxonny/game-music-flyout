@@ -11,10 +11,16 @@ namespace GameMusicFlyout.ViewModels;
 public sealed class FlyoutViewModel : ObservableObject, IDisposable
 {
     // Segoe MDL2 Assets glyphs (ships with Windows 10+).
-    private const string PlayGlyph = "";
-    private const string PauseGlyph = "";
-    private const string RepeatAllGlyph = "";
-    private const string RepeatOneGlyph = "";
+    private const string PlayGlyph = "\uE768";
+    private const string PauseGlyph = "\uE769";
+    private const string RepeatAllGlyph = "\uE8EE";
+    private const string RepeatOneGlyph = "\uE8ED";
+    private const string MuteGlyph = "\uE74F";
+    private const string VolumeLowGlyph = "\uE993";
+    private const string VolumeMediumGlyph = "\uE994";
+    private const string VolumeHighGlyph = "\uE995";
+
+    private const double VolumeWheelStep = 5;
 
     private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan StatusDuration = TimeSpan.FromSeconds(4);
@@ -27,6 +33,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan MaxTimestampSkew = TimeSpan.FromSeconds(2);
 
     private readonly IMediaSessionService _mediaService;
+    private readonly IAppVolumeService _volumeService;
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _progressTimer;
     private readonly DispatcherTimer _statusTimer;
@@ -56,10 +63,12 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     private bool _canNext;
     private bool _canRepeat;
     private RepeatMode? _repeatMode;
+    private AppVolumeState _volume = AppVolumeState.Unavailable;
 
-    public FlyoutViewModel(IMediaSessionService mediaService, Dispatcher dispatcher)
+    public FlyoutViewModel(IMediaSessionService mediaService, IAppVolumeService volumeService, Dispatcher dispatcher)
     {
         _mediaService = mediaService;
+        _volumeService = volumeService;
         _dispatcher = dispatcher;
 
         _progressTimer = new DispatcherTimer(ProgressInterval, DispatcherPriority.Background, (_, _) => UpdatePosition(), dispatcher);
@@ -84,8 +93,19 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             () => CanRepeat,
             OnCommandError);
 
+        ToggleMuteCommand = new AsyncCommand(
+            () =>
+            {
+                ToggleMute();
+                return Task.CompletedTask;
+            },
+            () => IsVolumeAvailable,
+            OnCommandError);
+
+        _volumeService.StateChanged += OnVolumeStateChanged;
         _mediaService.StateChanged += OnMediaStateChanged;
         Apply(_mediaService.CurrentState);
+        ApplyVolume(_volumeService.State);
     }
 
     [Flags]
@@ -103,6 +123,58 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     public AsyncCommand PreviousCommand { get; }
     public AsyncCommand NextCommand { get; }
     public AsyncCommand CycleRepeatCommand { get; }
+    public AsyncCommand ToggleMuteCommand { get; }
+
+    public bool IsVolumeAvailable => _volume.IsAvailable;
+
+    public bool IsMuted => _volume.IsMuted;
+
+    /// <summary>0–100, two-way bound to the volume slider. Setting it changes the app's Windows volume.</summary>
+    public double VolumePercent
+    {
+        get => Math.Round(_volume.Volume * 100);
+        set
+        {
+            if (IsVolumeAvailable && Math.Abs(value - VolumePercent) >= 0.5)
+            {
+                _volumeService.SetVolume((float)(Math.Clamp(value, 0, 100) / 100));
+            }
+        }
+    }
+
+    public string VolumeGlyph => IsMuted || VolumePercent <= 0
+        ? MuteGlyph
+        : VolumePercent < 34 ? VolumeLowGlyph : VolumePercent < 67 ? VolumeMediumGlyph : VolumeHighGlyph;
+
+    public string VolumeToolTip
+    {
+        get
+        {
+            var app = _track is null ? null : SourceAppNames.GetDisplayName(_track.SourceAppId);
+            if (app is null)
+            {
+                return "Volume (nothing playing)";
+            }
+
+            if (!IsVolumeAvailable)
+            {
+                return $"No sound from {app} yet. Volume becomes available once it plays.";
+            }
+
+            return IsMuted
+                ? $"{app} is muted (click to unmute)"
+                : $"{app} volume: {VolumePercent:0}% (click to mute, scroll to adjust)";
+        }
+    }
+
+    /// <summary>Called by the view for mouse-wheel steps over the volume control.</summary>
+    public void ChangeVolumeBy(int wheelSteps)
+    {
+        if (IsVolumeAvailable && wheelSteps != 0)
+        {
+            VolumePercent = Math.Clamp(VolumePercent + (wheelSteps * VolumeWheelStep), 0, 100);
+        }
+    }
 
     public string Title
     {
@@ -321,6 +393,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     {
         _disposed = true;
         _mediaService.StateChanged -= OnMediaStateChanged;
+        _volumeService.StateChanged -= OnVolumeStateChanged;
         _progressTimer.Stop();
         _statusTimer.Stop();
     }
@@ -362,19 +435,70 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
                 ClearStatus();
             }
 
+            var startedPlaying = state.Playback?.State == PlaybackState.Playing && _playback?.State != PlaybackState.Playing;
             UpdateAnchor(state.Playback, sameSession);
             _track = track;
             _playback = state.Playback;
             ApplyTrackText(track);
+
+            _volumeService.SetTargetApp(track.SourceAppId);
+            if (startedPlaying && !IsVolumeAvailable)
+            {
+                // The app may only now be opening its audio session.
+                _volumeService.RequestRefresh();
+            }
         }
 
         UpdateCapabilities();
         UpdatePosition();
         UpdateProgressTimer();
+        OnPropertyChanged(nameof(VolumeToolTip));
+    }
+
+    private void OnVolumeStateChanged(object? sender, AppVolumeState state)
+    {
+        if (!_disposed)
+        {
+            ApplyVolume(state);
+        }
+    }
+
+    private void ApplyVolume(AppVolumeState state)
+    {
+        _volume = state;
+        OnPropertyChanged(nameof(IsVolumeAvailable));
+        OnPropertyChanged(nameof(IsMuted));
+        OnPropertyChanged(nameof(VolumePercent));
+        OnPropertyChanged(nameof(VolumeGlyph));
+        OnPropertyChanged(nameof(VolumeToolTip));
+        ToggleMuteCommand.RaiseCanExecuteChanged();
+    }
+
+    private void ToggleMute()
+    {
+        if (!IsVolumeAvailable)
+        {
+            return;
+        }
+
+        if (IsMuted)
+        {
+            _volumeService.SetMute(false);
+            if (VolumePercent <= 0)
+            {
+                // Unmuting at 0% would still be silent.
+                _volumeService.SetVolume(0.5f);
+            }
+        }
+        else
+        {
+            _volumeService.SetMute(true);
+        }
     }
 
     private void ResetSession()
     {
+        _volumeService.SetTargetApp(null);
         _track = null;
         _playback = null;
         _failedControls = TransportControls.None;

@@ -35,6 +35,55 @@ public static class SourceAppNames
         ("YouTubeMusic", "YouTube Music"),
     ];
 
+    // Process names (without .exe) that play audio for an app ID, matched like KnownApps. All matches apply.
+    private static readonly (string Fragment, string ProcessName)[] KnownProcesses =
+    [
+        ("spotify", "Spotify"),
+        ("msedge", "msedge"),
+        ("chrome", "chrome"),
+        ("firefox", "firefox"),
+        ("308046B0AF4A39CB", "firefox"),
+        ("brave", "brave"),
+        ("opera", "opera"),
+        ("vivaldi", "vivaldi"),
+        ("vlc", "vlc"),
+        ("ZuneMusic", "Microsoft.Media.Player"),
+        ("ZuneVideo", "Video.UI"),
+        ("AppleMusic", "AppleMusic"),
+        ("iTunes", "iTunes"),
+        ("TIDAL", "TIDAL"),
+        ("Amazon Music", "Amazon Music"),
+        ("Deezer", "Deezer"),
+        ("foobar2000", "foobar2000"),
+        ("MusicBee", "MusicBee"),
+        ("AIMP", "AIMP"),
+    ];
+
+    /// <summary>
+    /// Likely process names for an app ID, e.g. "chrome.exe" → chrome, "SpotifyAB...!Spotify" → Spotify.
+    /// Packaged apps are additionally matched by their process AUMID (see AppVolumeService).
+    /// </summary>
+    public static IReadOnlySet<string> GetProcessNames(string sourceAppId)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var fileName = Path.GetFileName(sourceAppId);
+        if (fileName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            names.Add(fileName[..^4]);
+        }
+
+        foreach (var (fragment, processName) in KnownProcesses)
+        {
+            if (sourceAppId.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+            {
+                names.Add(processName);
+            }
+        }
+
+        return names;
+    }
+
     public static string GetDisplayName(string? sourceAppId)
     {
         if (string.IsNullOrWhiteSpace(sourceAppId))
