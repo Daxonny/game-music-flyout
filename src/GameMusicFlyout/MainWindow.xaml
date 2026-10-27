@@ -2,8 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Game Music Flyout"
-        Width="396"
-        SizeToContent="Height"
+        SizeToContent="WidthAndHeight"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -12,11 +11,11 @@
         ShowInTaskbar="False"
         WindowStartupLocation="Manual"
         FontFamily="Segoe UI"
-        Foreground="{StaticResource TextPrimaryBrush}"
-        Loaded="OnLoaded">
+        Foreground="{StaticResource TextPrimaryBrush}">
 
-    <!-- Margin leaves room for the card's shadow inside the transparent window. -->
-    <Grid Margin="8">
+    <!-- Margin leaves room for the card's shadow inside the transparent window.
+         The window sizes to this grid; ApplyScale sets its LayoutTransform. -->
+    <Grid x:Name="CardRoot" Margin="8" Width="380">
         <!-- Shadow lives on a separate layer so the effect doesn't blur the card's text. -->
         <Border CornerRadius="10" Background="{StaticResource CardBackgroundBrush}">
             <Border.Effect>
@@ -56,7 +55,7 @@
                             Width="28" Height="28" FontSize="10"
                             VerticalAlignment="Top"
                             Content="&#xE8BB;"
-                            ToolTip="Hide"
+                            ToolTip="Hide (the tray icon or hotkey brings it back)"
                             Click="OnHideClick" />
                 </Grid>
 

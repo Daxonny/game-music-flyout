@@ -1,14 +1,13 @@
 using System.Windows;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using GameMusicFlyout.ViewModels;
 
 namespace GameMusicFlyout;
 
 public partial class MainWindow : Window
 {
-    private const double ScreenMargin = 16;
-
     public MainWindow()
     {
         InitializeComponent();
@@ -20,13 +19,8 @@ public partial class MainWindow : Window
 
     private FlyoutViewModel? ViewModel => DataContext as FlyoutViewModel;
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        // Step 1 default: bottom-right of the primary work area. Step 4 replaces this with a persisted position.
-        var workArea = SystemParameters.WorkArea;
-        Left = workArea.Right - ActualWidth - ScreenMargin;
-        Top = workArea.Bottom - ActualHeight - ScreenMargin;
-    }
+    /// <summary>Scales the whole card proportionally; the window resizes to fit.</summary>
+    public void ApplyScale(double scale) => CardRoot.LayoutTransform = new ScaleTransform(scale, scale);
 
     private void OnCardMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
@@ -47,9 +41,5 @@ public partial class MainWindow : Window
 
     private Task CommitSeekAsync() => ViewModel?.CommitSeekAsync() ?? Task.CompletedTask;
 
-    private void OnHideClick(object sender, RoutedEventArgs e)
-    {
-        // Step 1 has no tray icon to bring the window back, so hiding exits for now. Step 4 changes this to Hide().
-        Application.Current.Shutdown();
-    }
+    private void OnHideClick(object sender, RoutedEventArgs e) => Hide();
 }
