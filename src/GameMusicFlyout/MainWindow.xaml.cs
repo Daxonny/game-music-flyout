@@ -41,5 +41,6 @@ public partial class MainWindow : Window
 
     private Task CommitSeekAsync() => ViewModel?.CommitSeekAsync() ?? Task.CompletedTask;
 
-    private void OnHideClick(object sender, RoutedEventArgs e) => Hide();
+    // User preference: ✕ exits the app; the global shortcut is for hiding.
+    private void OnCloseClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 }

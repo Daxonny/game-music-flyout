@@ -55,8 +55,8 @@
                             Width="28" Height="28" FontSize="10"
                             VerticalAlignment="Top"
                             Content="&#xE8BB;"
-                            ToolTip="Hide (the tray icon or hotkey brings it back)"
-                            Click="OnHideClick" />
+                            ToolTip="Exit Game Music Flyout"
+                            Click="OnCloseClick" />
                 </Grid>
 
                 <!-- Non-fatal status message, collapsed when empty -->
