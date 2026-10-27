@@ -50,6 +50,7 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 ### 3. Controls
 - [ ] Play/pause, previous, next via `Try...Async`; enabled only per `PlaybackControls`; icon follows real status
 - [ ] Repeat: cycle off → track → list via `TryChangeAutoRepeatModeAsync`; disabled + tooltip when unsupported
+- [ ] Fix (seen in user test): clicking the slider set a local Value, which broke its OneWay binding, so the thumb moved without seeking and stopped following updates. Drive the slider from code/VM during drag instead of relying on OneWay binding.
 - [ ] Seek bar: local 250 ms interpolation timer, no thumb updates while dragging, single seek on release (100-ns ticks, clamped); disabled for no/invalid duration or unsupported; live = elapsed only
 - [ ] Failures are visible (brief status text) but non-fatal
 - [ ] Builds clean
@@ -78,3 +79,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-27: Step 1 done. Builds clean. Visual check of the mockup not done by Claude (a screen-capture script was blocked by permissions); user to run `./build.sh run` and look. Next: step 2.
 - 2026-10-27: User confirmed the mockup looks good. Asked for resizing; chose proportional **scale** (not free edge-resize). Added to step 4.
 - 2026-10-27: Step 2 done. Builds clean. Runtime probe on Windows confirmed GSMTC manager works (0 sessions at the time, so metadata display not yet verified with a real player). Transport buttons are still no-ops (step 3). Next: step 3.
+- 2026-10-27: User tested step 2 with Chrome: session detected, duration 2:49, and controls gated correctly (prev/next/repeat disabled). The title showed Chrome's placeholder "A site is playing media" (likely Incognito). Elapsed was stuck at 0:00 because Chrome only reports position on events; step 3's interpolation fixes that.
