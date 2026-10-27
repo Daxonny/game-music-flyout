@@ -29,6 +29,11 @@ if [[ -d "$MIRROR_DIR" && ! -f "$MIRROR_DIR/$SENTINEL" && -n "$(ls -A "$MIRROR_D
     exit 1
 fi
 
+if [[ "$MODE" != "publish" ]] && tasklist.exe /FI "IMAGENAME eq GameMusicFlyout.exe" /NH 2>/dev/null | grep -qi "GameMusicFlyout.exe"; then
+    echo "error: GameMusicFlyout is running, so its .exe is locked. Exit it (✕ on the flyout) and build again." >&2
+    exit 1
+fi
+
 mkdir -p "$MIRROR_DIR"
 touch "$MIRROR_DIR/$SENTINEL"
 
