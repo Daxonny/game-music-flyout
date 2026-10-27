@@ -98,8 +98,9 @@
                             Style="{StaticResource SeekSliderStyle}"
                             Minimum="0"
                             Maximum="{Binding DurationSeconds, Mode=OneWay}"
-                            Value="{Binding PositionSeconds, Mode=OneWay}"
-                            IsEnabled="{Binding CanSeek}" />
+                            Value="{Binding SeekValue, Mode=TwoWay}"
+                            IsEnabled="{Binding CanSeek}"
+                            Thumb.DragCompleted="OnSeekDragCompleted" />
                     <TextBlock Grid.Column="2"
                                Text="{Binding TotalText}"
                                FontSize="11.5"

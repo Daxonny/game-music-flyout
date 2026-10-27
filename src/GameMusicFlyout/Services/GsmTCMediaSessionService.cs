@@ -16,7 +16,7 @@ public sealed class GsmTCMediaSessionService : IMediaSessionService
     private readonly SemaphoreSlim _lock = new(1, 1);
 
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
-    private SessionSubscription? _subscription;
+    private volatile SessionSubscription? _subscription;
     private TrackSnapshot? _track;
     private PlaybackSnapshot? _playback;
     private volatile bool _disposed;
@@ -68,6 +68,76 @@ public sealed class GsmTCMediaSessionService : IMediaSessionService
         _subscription?.Dispose();
         _subscription = null;
         StateChanged = null;
+    }
+
+    public Task<bool> TogglePlayPauseAsync() => RunOnSessionAsync(async session =>
+    {
+        var info = session.GetPlaybackInfo();
+        if (info.Controls.IsPlayPauseToggleEnabled)
+        {
+            return await session.TryTogglePlayPauseAsync();
+        }
+
+        return info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing
+            ? await session.TryPauseAsync()
+            : await session.TryPlayAsync();
+    });
+
+    public Task<bool> PreviousAsync() => RunOnSessionAsync(async session => await session.TrySkipPreviousAsync());
+
+    public Task<bool> NextAsync() => RunOnSessionAsync(async session => await session.TrySkipNextAsync());
+
+    public Task<bool> SetRepeatModeAsync(RepeatMode mode) => RunOnSessionAsync(async session =>
+    {
+        var target = mode switch
+        {
+            RepeatMode.Track => MediaPlaybackAutoRepeatMode.Track,
+            RepeatMode.List => MediaPlaybackAutoRepeatMode.List,
+            _ => MediaPlaybackAutoRepeatMode.None,
+        };
+        return await session.TryChangeAutoRepeatModeAsync(target);
+    });
+
+    public Task<bool> SeekAsync(TimeSpan offset) => RunOnSessionAsync(async session =>
+    {
+        var timeline = session.GetTimelineProperties();
+        var min = timeline.StartTime;
+        var max = timeline.EndTime;
+
+        // Some sources narrow the seekable window; honor it when it is reported.
+        if (timeline.MaxSeekTime > timeline.MinSeekTime)
+        {
+            min = TimeSpan.FromTicks(Math.Max(min.Ticks, timeline.MinSeekTime.Ticks));
+            max = TimeSpan.FromTicks(Math.Min(max.Ticks, timeline.MaxSeekTime.Ticks));
+        }
+
+        if (max <= min)
+        {
+            return false;
+        }
+
+        var target = TimeSpan.FromTicks(Math.Clamp((timeline.StartTime + offset).Ticks, min.Ticks, max.Ticks));
+        // The API takes the position in 100-nanosecond ticks, the same unit as TimeSpan.Ticks.
+        return await session.TryChangePlaybackPositionAsync(target.Ticks);
+    });
+
+    private async Task<bool> RunOnSessionAsync(Func<GlobalSystemMediaTransportControlsSession, Task<bool>> operation)
+    {
+        var session = _subscription?.Session;
+        if (_disposed || session is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await operation(session);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Media command failed: {ex}");
+            return false;
+        }
     }
 
     private async void OnCurrentSessionChanged(GlobalSystemMediaTransportControlsSessionManager sender, CurrentSessionChangedEventArgs args) =>

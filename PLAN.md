@@ -48,12 +48,13 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 - [x] Builds clean
 
 ### 3. Controls
-- [ ] Play/pause, previous, next via `Try...Async`; enabled only per `PlaybackControls`; icon follows real status
-- [ ] Repeat: cycle off → track → list via `TryChangeAutoRepeatModeAsync`; disabled + tooltip when unsupported
-- [ ] Fix (seen in user test): clicking the slider set a local Value, which broke its OneWay binding, so the thumb moved without seeking and stopped following updates. Drive the slider from code/VM during drag instead of relying on OneWay binding.
-- [ ] Seek bar: local 250 ms interpolation timer, no thumb updates while dragging, single seek on release (100-ns ticks, clamped); disabled for no/invalid duration or unsupported; live = elapsed only
-- [ ] Failures are visible (brief status text) but non-fatal
-- [ ] Builds clean
+- [x] Play/pause, previous, next via `Try...Async`; enabled only per `PlaybackControls`; icon follows real status
+- [x] Repeat: cycle off → track → list via `TryChangeAutoRepeatModeAsync`; disabled + tooltip when unsupported
+- [x] Fix (seen in user test; slider is now two-way bound to `SeekValue`, gestures handled in `MainWindow.xaml.cs`): clicking the slider set a local Value, which broke its OneWay binding, so the thumb moved without seeking and stopped following updates. Drive the slider from code/VM during drag instead of relying on OneWay binding.
+- [x] Seek bar: local 250 ms interpolation timer, no thumb updates while dragging, single seek on release (100-ns ticks, clamped); disabled for no/invalid duration or unsupported; live = elapsed only
+- [x] Failures are visible (brief status text) but non-fatal
+- [x] Builds clean
+- Notes: interpolation anchors on the source's `LastUpdatedTime` (sanitized) and re-anchors locally on play/pause without a timeline update. A failed control is disabled until the track or source changes. Press-release moves under 0.5 s don't seek.
 
 ### 4. Window behavior
 - [ ] Topmost, borderless, no-activate, drag-to-move, position persisted + clamped to visible screens
@@ -81,3 +82,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-27: Step 2 done. Builds clean. Runtime probe on Windows confirmed GSMTC manager works (0 sessions at the time, so metadata display not yet verified with a real player). Transport buttons are still no-ops (step 3). Next: step 3.
 - 2026-10-27: User tested step 2 with Chrome: session detected, duration 2:49, and controls gated correctly (prev/next/repeat disabled). The title showed Chrome's placeholder "A site is playing media" (likely Incognito). Elapsed was stuck at 0:00 because Chrome only reports position on events; step 3's interpolation fixes that.
 - 2026-10-27: User tested with Brave and Chrome both open; the flyout follows whichever is playing. No session-selection change needed. A probe showed both browsers publish sessions (`chrome.exe`, `brave.exe`).
+- 2026-10-27: Step 3 done. Builds clean. Not runtime-tested by Claude (testing would control the user's real playback). User should test buttons, repeat, and seek with Chrome/Brave/Spotify. Next: step 4.

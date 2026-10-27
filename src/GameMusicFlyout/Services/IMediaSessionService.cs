@@ -15,4 +15,18 @@ public interface IMediaSessionService : IDisposable
 
     /// <summary>Connects to Windows media controls. Never throws; failures publish an unavailable state.</summary>
     Task InitializeAsync();
+
+    // Playback commands for the current session. Each returns false when there is no session or the
+    // source rejects/fails the request; none throw. The resulting state arrives through StateChanged.
+
+    Task<bool> TogglePlayPauseAsync();
+
+    Task<bool> PreviousAsync();
+
+    Task<bool> NextAsync();
+
+    Task<bool> SetRepeatModeAsync(RepeatMode mode);
+
+    /// <summary>Seeks to <paramref name="offset"/> from the timeline start, clamped to the seekable range.</summary>
+    Task<bool> SeekAsync(TimeSpan offset);
 }

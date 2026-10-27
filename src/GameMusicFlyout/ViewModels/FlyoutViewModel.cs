@@ -7,7 +7,6 @@ namespace GameMusicFlyout.ViewModels;
 
 /// <summary>
 /// State and commands for the flyout card, projected from <see cref="IMediaSessionService"/> snapshots.
-/// Step 2: display only; the transport commands are wired in step 3.
 /// </summary>
 public sealed class FlyoutViewModel : ObservableObject, IDisposable
 {
@@ -17,14 +16,38 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     private const string RepeatAllGlyph = "";
     private const string RepeatOneGlyph = "";
 
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan StatusDuration = TimeSpan.FromSeconds(4);
+
+    // A press-and-release that moves less than this (e.g. a click on the thumb itself) doesn't seek.
+    private const double MinSeekDeltaSeconds = 0.5;
+
+    // Sources can report odd LastUpdatedTime values; outside this window the arrival time is used instead.
+    private static readonly TimeSpan MaxTimestampAge = TimeSpan.FromHours(12);
+    private static readonly TimeSpan MaxTimestampSkew = TimeSpan.FromSeconds(2);
+
     private readonly IMediaSessionService _mediaService;
     private readonly Dispatcher _dispatcher;
+    private readonly DispatcherTimer _progressTimer;
+    private readonly DispatcherTimer _statusTimer;
+
+    private TrackSnapshot? _track;
+    private PlaybackSnapshot? _playback;
+    private TransportControls _failedControls;
+
+    // Progress is interpolated locally from the last reported position instead of re-querying the OS.
+    private double _anchorPositionSeconds;
+    private DateTimeOffset _anchorTime;
+    private bool _isUserSeeking;
+    private double _seekStartSeconds;
+    private bool _disposed;
 
     private string _title = string.Empty;
     private string _subtitle = string.Empty;
     private string? _detailsToolTip;
     private string _statusText = string.Empty;
     private double _positionSeconds;
+    private double _seekValue;
     private double _durationSeconds;
     private bool _canSeek;
     private bool _isPlaying;
@@ -39,13 +62,41 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         _mediaService = mediaService;
         _dispatcher = dispatcher;
 
-        PlayPauseCommand = new AsyncCommand(() => Task.CompletedTask, () => CanPlayPause);
-        PreviousCommand = new AsyncCommand(() => Task.CompletedTask, () => CanPrevious);
-        NextCommand = new AsyncCommand(() => Task.CompletedTask, () => CanNext);
-        CycleRepeatCommand = new AsyncCommand(() => Task.CompletedTask, () => CanRepeat);
+        _progressTimer = new DispatcherTimer(ProgressInterval, DispatcherPriority.Background, (_, _) => UpdatePosition(), dispatcher);
+        _progressTimer.Stop();
+        _statusTimer = new DispatcherTimer(StatusDuration, DispatcherPriority.Background, (_, _) => ClearStatus(), dispatcher);
+        _statusTimer.Stop();
+
+        PlayPauseCommand = new AsyncCommand(
+            () => RunTransportAsync(TransportControls.PlayPause, "play/pause", _mediaService.TogglePlayPauseAsync),
+            () => CanPlayPause,
+            OnCommandError);
+        PreviousCommand = new AsyncCommand(
+            () => RunTransportAsync(TransportControls.Previous, "previous", _mediaService.PreviousAsync),
+            () => CanPrevious,
+            OnCommandError);
+        NextCommand = new AsyncCommand(
+            () => RunTransportAsync(TransportControls.Next, "next", _mediaService.NextAsync),
+            () => CanNext,
+            OnCommandError);
+        CycleRepeatCommand = new AsyncCommand(
+            () => RunTransportAsync(TransportControls.Repeat, "repeat", () => _mediaService.SetRepeatModeAsync(NextRepeatMode(RepeatMode))),
+            () => CanRepeat,
+            OnCommandError);
 
         _mediaService.StateChanged += OnMediaStateChanged;
         Apply(_mediaService.CurrentState);
+    }
+
+    [Flags]
+    private enum TransportControls
+    {
+        None = 0,
+        PlayPause = 1,
+        Previous = 2,
+        Next = 4,
+        Repeat = 8,
+        Seek = 16,
     }
 
     public AsyncCommand PlayPauseCommand { get; }
@@ -80,6 +131,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         private set => SetProperty(ref _statusText, value);
     }
 
+    /// <summary>Displayed position (drives the elapsed text). Follows the drag while the user seeks.</summary>
     public double PositionSeconds
     {
         get => _positionSeconds;
@@ -88,6 +140,22 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             if (SetProperty(ref _positionSeconds, value))
             {
                 OnPropertyChanged(nameof(ElapsedText));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Seek slider value (two-way bound so user input never detaches the binding).
+    /// Separate from <see cref="PositionSeconds"/> because the slider clamps to its range.
+    /// </summary>
+    public double SeekValue
+    {
+        get => _seekValue;
+        set
+        {
+            if (SetProperty(ref _seekValue, value) && _isUserSeeking)
+            {
+                PositionSeconds = value;
             }
         }
     }
@@ -176,7 +244,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     public string RepeatGlyph => RepeatMode == Models.RepeatMode.Track ? RepeatOneGlyph : RepeatAllGlyph;
 
     public string RepeatToolTip => !CanRepeat
-        ? "Repeat isn't supported by this player."
+        ? IsFailed(TransportControls.Repeat) ? "Repeat failed for this player." : "Repeat isn't supported by this player."
         : RepeatMode switch
         {
             Models.RepeatMode.Track => "Repeat: track",
@@ -184,43 +252,136 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             _ => "Repeat: off",
         };
 
-    public void Dispose() => _mediaService.StateChanged -= OnMediaStateChanged;
+    /// <summary>Called by the view when the user presses on the seek bar.</summary>
+    public void BeginSeek()
+    {
+        if (CanSeek)
+        {
+            _isUserSeeking = true;
+            // PositionSeconds still holds the pre-press position: the slider moves its value before this runs.
+            _seekStartSeconds = PositionSeconds;
+        }
+    }
+
+    /// <summary>
+    /// Called by the view when the user releases the seek bar. Issues a single seek for the final value;
+    /// safe to call more than once per gesture.
+    /// </summary>
+    public async Task CommitSeekAsync()
+    {
+        if (!_isUserSeeking)
+        {
+            return;
+        }
+
+        _isUserSeeking = false;
+        var target = Math.Clamp(SeekValue, 0, DurationSeconds);
+        if (Math.Abs(target - _seekStartSeconds) < MinSeekDeltaSeconds)
+        {
+            UpdatePosition();
+            return;
+        }
+
+        // Show the target immediately; the player's next timeline update confirms or corrects it.
+        var previousAnchor = (_anchorPositionSeconds, _anchorTime);
+        var optimisticTime = DateTimeOffset.Now;
+        _anchorPositionSeconds = target;
+        _anchorTime = optimisticTime;
+        UpdatePosition();
+
+        bool succeeded;
+        try
+        {
+            succeeded = await _mediaService.SeekAsync(TimeSpan.FromSeconds(target));
+        }
+        catch (Exception ex)
+        {
+            OnCommandError(ex);
+            succeeded = false;
+        }
+
+        if (!succeeded && !_disposed)
+        {
+            // Roll back only if no newer timeline update replaced the optimistic anchor meanwhile.
+            if (_anchorPositionSeconds == target && _anchorTime == optimisticTime)
+            {
+                (_anchorPositionSeconds, _anchorTime) = previousAnchor;
+            }
+
+            ReportFailure(TransportControls.Seek, "seeking");
+            UpdatePosition();
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _mediaService.StateChanged -= OnMediaStateChanged;
+        _progressTimer.Stop();
+        _statusTimer.Stop();
+    }
 
     private void OnMediaStateChanged(object? sender, MediaSessionState state) =>
         // Raised on a background thread; never block it waiting for the UI.
-        _dispatcher.InvokeAsync(() => Apply(state));
+        _dispatcher.InvokeAsync(() =>
+        {
+            if (!_disposed)
+            {
+                Apply(state);
+            }
+        });
 
     private void Apply(MediaSessionState state)
     {
-        if (!state.IsAvailable)
+        if (!state.IsAvailable || state.Track is not { } track)
         {
-            ApplyIdle("Media controls unavailable", "Windows didn't provide media session access.");
-        }
-        else if (state.Track is not { } track)
-        {
-            ApplyIdle("Nothing playing", "Start music or a video in any app.");
+            ResetSession();
+            if (state.IsAvailable)
+            {
+                Title = "Nothing playing";
+                Subtitle = "Start music or a video in any app.";
+            }
+            else
+            {
+                Title = "Media controls unavailable";
+                Subtitle = "Windows didn't provide media session access.";
+            }
         }
         else
         {
-            ApplyTrack(track);
-            ApplyPlayback(state.Playback);
+            var sameSession = _track is not null && _track.SourceAppId == track.SourceAppId;
+            var sameItem = sameSession && _track!.Title == track.Title && _track.Artist == track.Artist;
+            if (!sameItem)
+            {
+                // A failed control gets another chance with the next track or source.
+                _failedControls = TransportControls.None;
+                ClearStatus();
+            }
+
+            UpdateAnchor(state.Playback, sameSession);
+            _track = track;
+            _playback = state.Playback;
+            ApplyTrackText(track);
         }
 
-        PlayPauseCommand.RaiseCanExecuteChanged();
-        PreviousCommand.RaiseCanExecuteChanged();
-        NextCommand.RaiseCanExecuteChanged();
-        CycleRepeatCommand.RaiseCanExecuteChanged();
+        UpdateCapabilities();
+        UpdatePosition();
+        UpdateProgressTimer();
     }
 
-    private void ApplyIdle(string title, string subtitle)
+    private void ResetSession()
     {
-        Title = title;
-        Subtitle = subtitle;
+        _track = null;
+        _playback = null;
+        _failedControls = TransportControls.None;
+        _isUserSeeking = false;
+        _anchorPositionSeconds = 0;
+        _anchorTime = DateTimeOffset.Now;
         DetailsToolTip = null;
-        ApplyPlayback(null);
+        ClearStatus();
     }
 
-    private void ApplyTrack(TrackSnapshot track)
+    private void ApplyTrackText(TrackSnapshot track)
     {
         var sourceName = SourceAppNames.GetDisplayName(track.SourceAppId);
 
@@ -238,37 +399,149 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         DetailsToolTip = string.Join(Environment.NewLine, details);
     }
 
-    private void ApplyPlayback(PlaybackSnapshot? playback)
+    /// <summary>Must run before <see cref="_playback"/> is replaced: it may estimate from the old snapshot.</summary>
+    private void UpdateAnchor(PlaybackSnapshot? next, bool sameSession)
     {
-        if (playback is null)
+        var now = DateTimeOffset.Now;
+        var previous = sameSession ? _playback : null;
+
+        if (next is null)
         {
-            IsPlaying = false;
-            CanPlayPause = false;
-            CanPrevious = false;
-            CanNext = false;
-            CanRepeat = false;
-            RepeatMode = null;
-            CanSeek = false;
-            DurationSeconds = 0;
-            PositionSeconds = 0;
+            _anchorPositionSeconds = 0;
+            _anchorTime = now;
             return;
         }
 
-        IsPlaying = playback.State == PlaybackState.Playing;
-        CanPlayPause = playback.CanTogglePlayPause || (IsPlaying ? playback.CanPause : playback.CanPlay);
-        CanPrevious = playback.CanPrevious;
-        CanNext = playback.CanNext;
-        CanRepeat = playback.CanRepeat && playback.RepeatMode is not null;
-        RepeatMode = playback.RepeatMode;
+        var timelineChanged = previous is null
+            || previous.Position != next.Position
+            || previous.LastUpdated != next.LastUpdated
+            || previous.Duration != next.Duration;
 
-        var duration = playback.Duration.TotalSeconds;
-        var hasDuration = duration > 0;
-        DurationSeconds = hasDuration ? duration : 0;
-        PositionSeconds = hasDuration
-            ? Math.Clamp(playback.Position.TotalSeconds, 0, duration)
-            : Math.Max(0, playback.Position.TotalSeconds);
-        CanSeek = hasDuration && playback.CanSeek;
+        if (timelineChanged)
+        {
+            _anchorPositionSeconds = next.Position.TotalSeconds;
+            _anchorTime = SanitizeTimestamp(next.LastUpdated, now);
+        }
+        else if ((previous!.State == PlaybackState.Playing) != (next.State == PlaybackState.Playing))
+        {
+            // Play/pause without a timeline update: continue from where the local estimate is now.
+            _anchorPositionSeconds = EstimatePositionSeconds(now);
+            _anchorTime = now;
+        }
     }
+
+    private double EstimatePositionSeconds(DateTimeOffset now)
+    {
+        if (_playback is null)
+        {
+            return 0;
+        }
+
+        var position = _anchorPositionSeconds;
+        if (_playback.State == PlaybackState.Playing)
+        {
+            var rate = _playback.PlaybackRate is double r && r > 0 ? r : 1.0;
+            position += Math.Max(0, (now - _anchorTime).TotalSeconds) * rate;
+        }
+
+        var duration = _playback.Duration.TotalSeconds;
+        return duration > 0 ? Math.Clamp(position, 0, duration) : Math.Max(0, position);
+    }
+
+    private void UpdatePosition()
+    {
+        if (_isUserSeeking)
+        {
+            return;
+        }
+
+        var position = EstimatePositionSeconds(DateTimeOffset.Now);
+        PositionSeconds = position;
+        SeekValue = DurationSeconds > 0 ? position : 0;
+    }
+
+    private void UpdateCapabilities()
+    {
+        var playback = _playback;
+
+        IsPlaying = playback?.State == PlaybackState.Playing;
+        CanPlayPause = playback is not null
+            && (playback.CanTogglePlayPause || (IsPlaying ? playback.CanPause : playback.CanPlay))
+            && !IsFailed(TransportControls.PlayPause);
+        CanPrevious = playback is { CanPrevious: true } && !IsFailed(TransportControls.Previous);
+        CanNext = playback is { CanNext: true } && !IsFailed(TransportControls.Next);
+        RepeatMode = playback?.RepeatMode;
+        CanRepeat = playback is { CanRepeat: true, RepeatMode: not null } && !IsFailed(TransportControls.Repeat);
+        OnPropertyChanged(nameof(RepeatToolTip));
+
+        var duration = playback?.Duration.TotalSeconds ?? 0;
+        DurationSeconds = duration > 0 ? duration : 0;
+        CanSeek = duration > 0 && playback!.CanSeek && !IsFailed(TransportControls.Seek);
+        if (!CanSeek)
+        {
+            _isUserSeeking = false;
+        }
+
+        PlayPauseCommand.RaiseCanExecuteChanged();
+        PreviousCommand.RaiseCanExecuteChanged();
+        NextCommand.RaiseCanExecuteChanged();
+        CycleRepeatCommand.RaiseCanExecuteChanged();
+    }
+
+    private void UpdateProgressTimer()
+    {
+        if (!_disposed && _playback?.State == PlaybackState.Playing)
+        {
+            _progressTimer.Start();
+        }
+        else
+        {
+            _progressTimer.Stop();
+        }
+    }
+
+    private async Task RunTransportAsync(TransportControls control, string actionName, Func<Task<bool>> operation)
+    {
+        if (!await operation() && !_disposed)
+        {
+            ReportFailure(control, actionName);
+        }
+    }
+
+    private void ReportFailure(TransportControls control, string actionName)
+    {
+        _failedControls |= control;
+        var source = _track is null ? "The player" : SourceAppNames.GetDisplayName(_track.SourceAppId);
+        ShowStatus($"{source} didn't accept {actionName}.");
+        UpdateCapabilities();
+    }
+
+    private bool IsFailed(TransportControls control) => (_failedControls & control) != 0;
+
+    private void OnCommandError(Exception ex) => ShowStatus($"Something went wrong: {ex.Message}");
+
+    private void ShowStatus(string message)
+    {
+        StatusText = message;
+        _statusTimer.Stop();
+        _statusTimer.Start();
+    }
+
+    private void ClearStatus()
+    {
+        _statusTimer.Stop();
+        StatusText = string.Empty;
+    }
+
+    private static RepeatMode NextRepeatMode(RepeatMode? current) => current switch
+    {
+        Models.RepeatMode.Track => Models.RepeatMode.List,
+        Models.RepeatMode.List => Models.RepeatMode.None,
+        _ => Models.RepeatMode.Track,
+    };
+
+    private static DateTimeOffset SanitizeTimestamp(DateTimeOffset reported, DateTimeOffset now) =>
+        reported > now + MaxTimestampSkew || reported < now - MaxTimestampAge ? now : reported;
 
     private static string FormatTime(double seconds)
     {

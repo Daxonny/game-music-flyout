@@ -1,5 +1,7 @@
 using System.Windows;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using GameMusicFlyout.ViewModels;
 
 namespace GameMusicFlyout;
 
@@ -10,7 +12,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // The slider marks these handled itself (IsMoveToPointEnabled), so listen to handled events too.
+        SeekSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnSeekPressed), handledEventsToo: true);
+        SeekSlider.AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnSeekReleased), handledEventsToo: true);
     }
+
+    private FlyoutViewModel? ViewModel => DataContext as FlyoutViewModel;
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -28,6 +36,16 @@ public partial class MainWindow : Window
             DragMove();
         }
     }
+
+    private void OnSeekPressed(object sender, MouseButtonEventArgs e) => ViewModel?.BeginSeek();
+
+    // One seek per gesture: release commits the final value; DragCompleted also covers a drag
+    // that ends by losing mouse capture. CommitSeekAsync ignores the second call.
+    private async void OnSeekReleased(object sender, MouseButtonEventArgs e) => await CommitSeekAsync();
+
+    private async void OnSeekDragCompleted(object sender, DragCompletedEventArgs e) => await CommitSeekAsync();
+
+    private Task CommitSeekAsync() => ViewModel?.CommitSeekAsync() ?? Task.CompletedTask;
 
     private void OnHideClick(object sender, RoutedEventArgs e)
     {
