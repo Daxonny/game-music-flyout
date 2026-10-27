@@ -11,6 +11,12 @@ A small always-on-top Windows flyout for seeing and controlling music while gami
 
 It only reads what players report to Windows and sends commands back the same way, and sets the playing app's Windows volume. It makes no network connections, doesn't capture audio, and doesn't inject anything into games. See `ARCHITECTURE.md` for the full specification.
 
+## Download
+
+Get the latest `GameMusicFlyout-…-win-x64.zip` from **[Releases](https://github.com/Daxonny/game-music-flyout/releases)**, unzip it, and run `GameMusicFlyout.exe`. There's nothing to install.
+
+**"Windows protected your PC" warning:** the app isn't code-signed, so Windows SmartScreen may block the first start. Click **More info → Run anyway**. Antivirus tools can be similarly cautious about new unsigned apps that register a global shortcut. The full source is in this repo if you'd rather build it yourself.
+
 ## Requirements
 
 - Windows 10 version 2004 (build 19041) or newer, or Windows 11, 64-bit.
