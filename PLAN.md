@@ -101,3 +101,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-28: Project published to github.com/Daxonny/game-music-flyout (public; commits use the noreply email). User requested a volume control; chose per-app volume -> step 6.
 - 2026-10-28: Step 6 (per-app volume) implemented. Builds clean. Not runtime-tested by Claude (it would change the user's real volume). User to test.
 - 2026-10-28: User tested step 6: per-app volume works.
+- 2026-10-28: Released v0.1.0 (pre-release) on GitHub with `GameMusicFlyout-v0.1.0-win-x64.zip` (75.5 MB; built from 91f6202, tag on 3daae60). Release zips are kept outside the build mirror in `C:\Users\pcpc\source\GameMusicFlyout-release`. The user uploads releases via the web UI (no gh CLI).
