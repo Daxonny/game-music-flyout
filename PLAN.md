@@ -100,3 +100,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-27: Step 5 done. Published the single-file exe; it launched on Windows with no error.log (68 MB private / 132 MB working set). **MVP complete.** The published exe was left running for the user.
 - 2026-10-28: Project published to github.com/Daxonny/game-music-flyout (public; commits use the noreply email). User requested a volume control; chose per-app volume -> step 6.
 - 2026-10-28: Step 6 (per-app volume) implemented. Builds clean. Not runtime-tested by Claude (it would change the user's real volume). User to test.
+- 2026-10-28: User tested step 6: per-app volume works.
