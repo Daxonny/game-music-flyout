@@ -24,7 +24,7 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 - Always run Windows tools with a `C:\` working directory, never `\\wsl.localhost\...`.
 - **Target framework:** `net10.0-windows10.0.19041.0` (needed for GSMTC WinRT projections), `UseWPF=true`, `UseWindowsForms=true` (only for tray `NotifyIcon`).
 - **Default hotkey:** `Ctrl+Alt+M` (configurable).
-- **Settings file:** `%APPDATA%\GameMusicFlyout\settings.json` (window position, hotkey, start-visible).
+- **Settings file:** `%APPDATA%\GameMusicFlyout\settings.json` (window position, scale, hotkey, start-visible).
 - **Focus:** the flyout window uses `WS_EX_NOACTIVATE` + `WS_EX_TOOLWINDOW` so showing it doesn't steal keyboard focus from the game.
 - No network, no audio capture, no game injection (see spec).
 - **Git:** local repo on `main`, no remote. Commit after each step (or meaningful sub-step) once it builds clean.
@@ -58,7 +58,8 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 - [ ] Topmost, borderless, no-activate, drag-to-move, position persisted + clamped to visible screens
 - [ ] `IGlobalHotkeyService` + `GlobalHotkeyService` (`RegisterHotKey` via `HwndSource`); conflict surfaced to user; unregister on exit
 - [ ] `IOverlayWindowService` + `OverlayWindowService` (show/hide/toggle)
-- [ ] Tray icon: Show/Hide, Exit; hide button on card
+- [ ] Scale (user request): whole card scales proportionally via `LayoutTransform`, 75%–150% in 5% steps (exact range is a choice, adjust if needed); Ctrl+mouse wheel over the card + tray "Size" submenu (e.g. 75/100/125/150%); persisted in settings; window re-clamped to screen after scaling
+- [ ] Tray icon: Show/Hide, Size, Exit; hide button on card
 - [ ] Clean shutdown: hotkey, timers, session events, tray icon released
 - [ ] Builds clean
 
@@ -75,3 +76,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 
 - 2026-10-27: Read spec, verified environment, wrote this plan. Initialized git.
 - 2026-10-27: Step 1 done. Builds clean. Visual check of the mockup not done by Claude (a screen-capture script was blocked by permissions); user to run `./build.sh run` and look. Next: step 2.
+- 2026-10-27: User confirmed the mockup looks good. Asked for resizing; chose proportional **scale** (not free edge-resize). Added to step 4.
