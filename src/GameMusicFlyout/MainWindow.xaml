@@ -44,7 +44,7 @@
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding Subtitle}"
-                                   ToolTip="{Binding Subtitle}"
+                                   ToolTip="{Binding DetailsToolTip}"
                                    Margin="0,2,0,0"
                                    FontSize="12.5"
                                    Foreground="{StaticResource TextSecondaryBrush}"

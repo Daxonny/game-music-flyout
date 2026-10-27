@@ -40,12 +40,12 @@ Spec: `ARCHITECTURE.md` (source of truth for requirements). This file tracks **h
 - [x] Builds clean on Windows (0 warnings, 0 errors)
 
 ### 2. GSMTC media session service
-- [ ] `TrackSnapshot`, `PlaybackSnapshot` models
-- [ ] `IMediaSessionService` + `GsmTCMediaSessionService`: manager init, session-list / current-session events, per-session property/playback/timeline events, unsubscribe on switch/shutdown
-- [ ] Metadata normalization + artist-empty fallback to source (`YouTube · Chrome`-style friendly app-ID mapping)
-- [ ] Idle state when no session; all WinRT calls wrapped (no crashes)
-- [ ] ViewModel bound to real data, updates on dispatcher
-- [ ] Builds clean
+- [x] `TrackSnapshot`, `PlaybackSnapshot` models (+ `MediaSessionState` wrapper)
+- [x] `IMediaSessionService` + `GsmTCMediaSessionService`: manager init, session-list / current-session events, per-session property/playback/timeline events, unsubscribe on switch/shutdown
+- [x] Metadata normalization + artist-empty fallback to source (`Services/SourceAppNames.cs`; GSMTC doesn't expose the website, so browsers show e.g. "Chrome", not "YouTube · Chrome")
+- [x] Idle state when no session; all WinRT calls wrapped (no crashes)
+- [x] ViewModel bound to real data, updates on dispatcher
+- [x] Builds clean
 
 ### 3. Controls
 - [ ] Play/pause, previous, next via `Try...Async`; enabled only per `PlaybackControls`; icon follows real status
@@ -77,3 +77,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-27: Read spec, verified environment, wrote this plan. Initialized git.
 - 2026-10-27: Step 1 done. Builds clean. Visual check of the mockup not done by Claude (a screen-capture script was blocked by permissions); user to run `./build.sh run` and look. Next: step 2.
 - 2026-10-27: User confirmed the mockup looks good. Asked for resizing; chose proportional **scale** (not free edge-resize). Added to step 4.
+- 2026-10-27: Step 2 done. Builds clean. Runtime probe on Windows confirmed GSMTC manager works (0 sessions at the time, so metadata display not yet verified with a real player). Transport buttons are still no-ops (step 3). Next: step 3.
