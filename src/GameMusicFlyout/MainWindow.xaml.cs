@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -16,6 +17,10 @@ public partial class MainWindow : Window
         SeekSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(OnSeekPressed), handledEventsToo: true);
         SeekSlider.AddHandler(PreviewMouseLeftButtonUpEvent, new MouseButtonEventHandler(OnSeekReleased), handledEventsToo: true);
 
+        // Registered after OnSeekPressed so the seek begins before the drag does.
+        SeekSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(StartThumbDrag), handledEventsToo: true);
+        VolumeSlider.AddHandler(PreviewMouseLeftButtonDownEvent, new MouseButtonEventHandler(StartThumbDrag), handledEventsToo: true);
+
         // Ctrl+wheel (scaling) is handled first at window level, so this only sees plain wheel turns.
         VolumePanel.PreviewMouseWheel += OnVolumeMouseWheel;
     }
@@ -32,6 +37,29 @@ public partial class MainWindow : Window
         {
             DragMove();
         }
+    }
+
+    /// <summary>
+    /// IsMoveToPointEnabled jumps the thumb to a click on the track but doesn't start a drag, so a second
+    /// press was needed to drag. Once the slider has moved the thumb under the cursor, hand the same press
+    /// to the thumb so it keeps following the mouse until release.
+    /// </summary>
+    private static void StartThumbDrag(object sender, MouseButtonEventArgs e)
+    {
+        var slider = (Slider)sender;
+        if (slider.Template.FindName("PART_Track", slider) is not Track { Thumb: { } thumb }
+            || thumb.IsDragging
+            || (e.OriginalSource is DependencyObject source && thumb.IsAncestorOf(source)))
+        {
+            return; // Pressed on the thumb itself: it starts its own drag.
+        }
+
+        slider.UpdateLayout(); // Put the thumb at the new value before it records the drag origin.
+        thumb.RaiseEvent(new MouseButtonEventArgs(e.MouseDevice, e.Timestamp, MouseButton.Left)
+        {
+            RoutedEvent = MouseLeftButtonDownEvent,
+            Source = thumb,
+        });
     }
 
     private void OnVolumeMouseWheel(object sender, MouseWheelEventArgs e)

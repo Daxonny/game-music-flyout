@@ -4,7 +4,7 @@ A small always-on-top Windows flyout for seeing and controlling music while gami
 
 - Title and artist. When there's no artist, the source app is shown instead (e.g. "Chrome").
 - Play/pause, previous, next, and repeat (off → track → list).
-- Volume of the playing app (its Windows Volume Mixer level), YouTube-style: hover, click to mute, scroll to adjust.
+- Volume of the playing app (its Windows Volume Mixer level), YouTube-style: always-visible slider (click or drag), click the speaker to mute, scroll to adjust.
 - A seek bar with elapsed and total time. Click or drag to seek.
 - A global shortcut shows or hides the flyout without leaving your game.
 - A tray icon, plus a remembered position and size.
@@ -40,7 +40,7 @@ Get the latest `GameMusicFlyout-…-win-x64.zip` from **[Releases](https://githu
 | Exit the app | **✕** on the flyout, or tray → **Exit** |
 | Move the flyout | Drag an empty area of the card |
 | Resize (75%–150%) | Hold **Ctrl** and scroll over the card, or tray → **Size** |
-| App volume | Hover the speaker (bottom-left) to show the slider; click it to mute/unmute; scroll over it for ±5% |
+| App volume | Click or drag the slider next to the speaker (bottom-left); click the speaker to mute/unmute; scroll over it for ±5% |
 | Change the shortcut | Tray → **Shortcut…**, press the new keys, **Save** |
 | Show at startup on/off | Tray → **Show flyout when the app starts** |
 

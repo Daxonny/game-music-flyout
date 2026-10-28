@@ -117,33 +117,12 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Volume, YouTube-style: hovering slides the slider out; click mutes; wheel adjusts. -->
+                    <!-- Volume, YouTube-style: always-visible slider; click mutes; wheel adjusts. -->
                     <StackPanel x:Name="VolumePanel"
                                 Grid.Column="0"
                                 Orientation="Horizontal"
                                 HorizontalAlignment="Left"
                                 Background="Transparent">
-                        <StackPanel.Triggers>
-                            <EventTrigger RoutedEvent="MouseEnter">
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="VolumeSlider"
-                                                         Storyboard.TargetProperty="Width"
-                                                         To="56" Duration="0:0:0.15" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                            <EventTrigger RoutedEvent="MouseLeave">
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="VolumeSlider"
-                                                         Storyboard.TargetProperty="Width"
-                                                         To="0" Duration="0:0:0.15" />
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </EventTrigger>
-                        </StackPanel.Triggers>
-
                         <Button Content="{Binding VolumeGlyph}"
                                 ToolTip="{Binding VolumeToolTip}"
                                 Command="{Binding ToggleMuteCommand}">
@@ -154,7 +133,7 @@
                             </Button.Style>
                         </Button>
                         <Slider x:Name="VolumeSlider"
-                                Width="0"
+                                Width="56"
                                 Margin="4,0,0,0"
                                 VerticalAlignment="Center"
                                 Style="{StaticResource SeekSliderStyle}"
