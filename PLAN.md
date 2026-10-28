@@ -104,3 +104,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-28: User tested step 6: per-app volume works.
 - 2026-10-28: Released v0.1.0 (pre-release) on GitHub with `GameMusicFlyout-v0.1.0-win-x64.zip` (75.5 MB; built from 91f6202, tag on 3daae60). Release zips are kept outside the build mirror in `C:\Users\pcpc\source\GameMusicFlyout-release`. The user uploads releases via the web UI (no gh CLI).
 - 2026-10-28: Volume slider is always visible now (no hover). Fixed click-then-drag on the volume and seek sliders. User tested on Windows: works.
+- 2026-10-28: Built v0.1.1 release zip `GameMusicFlyout-v0.1.1-win-x64.zip` (75.7 MB, from 96f1806): always-visible volume slider, click-and-drag fix on both sliders. Saved in `C:\Users\pcpc\source\GameMusicFlyout-release`; the user uploads it via the web UI.
