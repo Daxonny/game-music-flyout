@@ -115,3 +115,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-28: Volume slider is always visible now (no hover). Fixed click-then-drag on the volume and seek sliders. User tested on Windows: works.
 - 2026-10-28: Built v0.1.1 release zip `GameMusicFlyout-v0.1.1-win-x64.zip` (75.7 MB, from 96f1806): always-visible volume slider, click-and-drag fix on both sliders. Saved in `C:\Users\pcpc\source\GameMusicFlyout-release`; the user uploads it via the web UI.
 - 2026-11-04: Step 7 (app repeat for browsers, user's idea) implemented; builds clean. User tested with YouTube in Brave: works.
+- 2026-11-04: Built v0.2.0 release zip `GameMusicFlyout-v0.2.0-win-x64.zip` (75.7 MB, from b87f0e2 + version bump): app repeat for browsers. Saved in `C:\Users\pcpc\source\GameMusicFlyout-release`; the user commits the bump and uploads it via the web UI.
