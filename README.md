@@ -3,7 +3,7 @@
 A small always-on-top Windows flyout for seeing and controlling music while gaming. It works with any app that publishes to Windows media controls (Spotify, Chrome, Brave, Edge, Firefox, VLC, Media Player, and others).
 
 - Title and artist. When there's no artist, the source app is shown instead (e.g. "Chrome").
-- Play/pause, previous, next, and repeat (off → track → list).
+- Play/pause, previous, next, and repeat (off → track → list). For players without their own repeat, such as YouTube in a browser, the flyout repeats the track itself (off ↔ track).
 - Volume of the playing app (its Windows Volume Mixer level), YouTube-style: always-visible slider (click or drag), click the speaker to mute, scroll to adjust.
 - A seek bar with elapsed and total time. Click or drag to seek.
 - A global shortcut shows or hides the flyout without leaving your game.
@@ -73,7 +73,8 @@ These come from Windows or the players, not from bugs in the flyout:
 - **YouTube in a browser ends its media session when a video finishes.** After that, nothing can be controlled ("Nothing playing"), so play can't restart it. Use YouTube's **Loop** (right-click the video) or a playlist/autoplay.
 - **Browsers report the browser, not the website.** With no artist you'll see "Chrome", not "YouTube · Chrome".
 - **Incognito/private windows** may show a placeholder such as "A site is playing media".
-- **Repeat, seeking, and previous/next depend on the player.** Browsers don't support repeat, and previous/next only work when the site enables them.
+- **Seeking and previous/next depend on the player.** Previous/next only work when the site enables them.
+- **Repeat in browsers is done by the flyout.** Browsers don't support repeat, so when it's on, the flyout jumps back to 0:00 about 0.5 s before the video ends (the last half second is skipped). It needs seeking and a known duration (not for live streams), works only while the flyout app is running, and turns off when you switch to another app.
 - **Volume is the app's Windows volume (Volume Mixer), not the player's own slider.** For a browser it affects the whole browser, not just one tab, and it multiplies with the in-page slider (YouTube at 50% × flyout 100% = 50%). It becomes available once the app actually plays sound. Your game's volume isn't touched.
 - **With several players open**, the flyout shows the session Windows considers current, usually the one playing most recently.
 
@@ -132,7 +133,7 @@ Taken from the spec's acceptance criteria. Run it after changes, since none of i
 - [ ] With Spotify (or another player) playing, the flyout shows the title and artist.
 - [ ] With a browser video that has no artist, it shows the title and the browser name.
 - [ ] Play/pause, previous, and next control the player. The play/pause icon follows the player when you pause *inside* the player.
-- [ ] Repeat cycles off → track → list where supported, and is greyed out with a tooltip in browsers.
+- [ ] Repeat cycles off → track → list where supported. In a browser (YouTube), repeat toggles off ↔ track, and with track on the video restarts at 0:00 instead of ending.
 - [ ] Clicking and dragging the seek bar jumps once, to where you release. Elapsed time counts up smoothly while playing.
 - [ ] Closing all players shows "Nothing playing" without errors. Starting one again picks it up.
 - [ ] The shortcut toggles the flyout over a **borderless windowed** game, and the game keeps keyboard input.

@@ -32,11 +32,19 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan MaxTimestampAge = TimeSpan.FromHours(12);
     private static readonly TimeSpan MaxTimestampSkew = TimeSpan.FromSeconds(2);
 
+    // App repeat (for players without their own repeat, e.g. YouTube in a browser): restart this long
+    // before the end, because a browser ends its media session once the video finishes.
+    private const double AppRepeatLeadSeconds = 0.5;
+    private const double AppRepeatMinDurationSeconds = 2;
+    // A late timeline update can still report the old near-end position right after a restart.
+    private static readonly TimeSpan AppRepeatCooldown = TimeSpan.FromSeconds(1);
+
     private readonly IMediaSessionService _mediaService;
     private readonly IAppVolumeService _volumeService;
     private readonly Dispatcher _dispatcher;
     private readonly DispatcherTimer _progressTimer;
     private readonly DispatcherTimer _statusTimer;
+    private readonly DispatcherTimer _appRepeatTimer;
 
     private TrackSnapshot? _track;
     private PlaybackSnapshot? _playback;
@@ -48,6 +56,11 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
     private bool _isUserSeeking;
     private double _seekStartSeconds;
     private bool _disposed;
+
+    private bool _usesAppRepeat;
+    private bool _isAppRepeatOn;
+    private bool _isAppRepeatRestarting;
+    private DateTimeOffset _lastAppRepeatRestart = DateTimeOffset.MinValue;
 
     private string _title = string.Empty;
     private string _subtitle = string.Empty;
@@ -75,6 +88,8 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         _progressTimer.Stop();
         _statusTimer = new DispatcherTimer(StatusDuration, DispatcherPriority.Background, (_, _) => ClearStatus(), dispatcher);
         _statusTimer.Stop();
+        _appRepeatTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Normal, (_, _) => ScheduleAppRepeat(), dispatcher);
+        _appRepeatTimer.Stop();
 
         PlayPauseCommand = new AsyncCommand(
             () => RunTransportAsync(TransportControls.PlayPause, "play/pause", _mediaService.TogglePlayPauseAsync),
@@ -89,7 +104,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             () => CanNext,
             OnCommandError);
         CycleRepeatCommand = new AsyncCommand(
-            () => RunTransportAsync(TransportControls.Repeat, "repeat", () => _mediaService.SetRepeatModeAsync(NextRepeatMode(RepeatMode))),
+            CycleRepeatAsync,
             () => CanRepeat,
             OnCommandError);
 
@@ -323,6 +338,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         ? IsFailed(TransportControls.Repeat) ? "Repeat failed for this player." : "Repeat isn't supported by this player."
         : RepeatMode switch
         {
+            Models.RepeatMode.Track when _usesAppRepeat => "Repeat: track (restarts just before the end)",
             Models.RepeatMode.Track => "Repeat: track",
             Models.RepeatMode.List => "Repeat: list",
             _ => "Repeat: off",
@@ -387,6 +403,8 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             ReportFailure(TransportControls.Seek, "seeking");
             UpdatePosition();
         }
+
+        ScheduleAppRepeat();
     }
 
     public void Dispose()
@@ -396,6 +414,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         _volumeService.StateChanged -= OnVolumeStateChanged;
         _progressTimer.Stop();
         _statusTimer.Stop();
+        _appRepeatTimer.Stop();
     }
 
     private void OnMediaStateChanged(object? sender, MediaSessionState state) =>
@@ -427,6 +446,11 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         else
         {
             var sameSession = _track is not null && _track.SourceAppId == track.SourceAppId;
+            if (!sameSession)
+            {
+                _isAppRepeatOn = false;
+            }
+
             var sameItem = sameSession && _track!.Title == track.Title && _track.Artist == track.Artist;
             if (!sameItem)
             {
@@ -452,6 +476,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         UpdateCapabilities();
         UpdatePosition();
         UpdateProgressTimer();
+        ScheduleAppRepeat();
         OnPropertyChanged(nameof(VolumeToolTip));
     }
 
@@ -503,6 +528,7 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         _playback = null;
         _failedControls = TransportControls.None;
         _isUserSeeking = false;
+        _isAppRepeatOn = false;
         _anchorPositionSeconds = 0;
         _anchorTime = DateTimeOffset.Now;
         DetailsToolTip = null;
@@ -598,9 +624,6 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
             && !IsFailed(TransportControls.PlayPause);
         CanPrevious = playback is { CanPrevious: true } && !IsFailed(TransportControls.Previous);
         CanNext = playback is { CanNext: true } && !IsFailed(TransportControls.Next);
-        RepeatMode = playback?.RepeatMode;
-        CanRepeat = playback is { CanRepeat: true, RepeatMode: not null } && !IsFailed(TransportControls.Repeat);
-        OnPropertyChanged(nameof(RepeatToolTip));
 
         var duration = playback?.Duration.TotalSeconds ?? 0;
         DurationSeconds = duration > 0 ? duration : 0;
@@ -609,6 +632,15 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         {
             _isUserSeeking = false;
         }
+
+        // Prefer the player's own repeat; otherwise the app repeats the track by seeking back to the start.
+        var playerRepeats = playback is { CanRepeat: true, RepeatMode: not null };
+        _usesAppRepeat = !playerRepeats && CanSeek && duration >= AppRepeatMinDurationSeconds;
+        RepeatMode = _usesAppRepeat
+            ? _isAppRepeatOn ? Models.RepeatMode.Track : Models.RepeatMode.None
+            : playback?.RepeatMode;
+        CanRepeat = (playerRepeats || _usesAppRepeat) && !IsFailed(TransportControls.Repeat);
+        OnPropertyChanged(nameof(RepeatToolTip));
 
         PlayPauseCommand.RaiseCanExecuteChanged();
         PreviousCommand.RaiseCanExecuteChanged();
@@ -626,6 +658,87 @@ public sealed class FlyoutViewModel : ObservableObject, IDisposable
         {
             _progressTimer.Stop();
         }
+    }
+
+    private Task CycleRepeatAsync()
+    {
+        if (!_usesAppRepeat)
+        {
+            return RunTransportAsync(TransportControls.Repeat, "repeat", () => _mediaService.SetRepeatModeAsync(NextRepeatMode(RepeatMode)));
+        }
+
+        _isAppRepeatOn = !_isAppRepeatOn;
+        UpdateCapabilities();
+        ScheduleAppRepeat();
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Arms a one-shot timer for <see cref="AppRepeatLeadSeconds"/> before the end of the current track,
+    /// or restarts the track now if that point has passed. Re-run whenever the timeline or state changes.
+    /// </summary>
+    private void ScheduleAppRepeat()
+    {
+        _appRepeatTimer.Stop();
+        if (_disposed || !_isAppRepeatOn || !_usesAppRepeat || !CanRepeat || _isUserSeeking || _isAppRepeatRestarting
+            || _playback?.State != PlaybackState.Playing)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.Now;
+        var rate = _playback.PlaybackRate is double r && r > 0 ? r : 1.0;
+        var wait = TimeSpan.FromSeconds((DurationSeconds - AppRepeatLeadSeconds - EstimatePositionSeconds(now)) / rate);
+        var cooldownLeft = _lastAppRepeatRestart + AppRepeatCooldown - now;
+        if (cooldownLeft > wait)
+        {
+            wait = cooldownLeft;
+        }
+
+        if (wait <= TimeSpan.Zero)
+        {
+            _ = RestartForAppRepeatAsync();
+            return;
+        }
+
+        _appRepeatTimer.Interval = wait;
+        _appRepeatTimer.Start();
+    }
+
+    private async Task RestartForAppRepeatAsync()
+    {
+        _isAppRepeatRestarting = true;
+        _lastAppRepeatRestart = DateTimeOffset.Now;
+
+        // Show the restart immediately; the player's next timeline update confirms it.
+        _anchorPositionSeconds = 0;
+        _anchorTime = _lastAppRepeatRestart;
+        UpdatePosition();
+
+        bool succeeded;
+        try
+        {
+            succeeded = await _mediaService.SeekAsync(TimeSpan.Zero);
+        }
+        catch (Exception ex)
+        {
+            OnCommandError(ex);
+            succeeded = false;
+        }
+
+        _isAppRepeatRestarting = false;
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (!succeeded)
+        {
+            _isAppRepeatOn = false;
+            ReportFailure(TransportControls.Repeat, "the repeat restart");
+        }
+
+        ScheduleAppRepeat();
     }
 
     private async Task RunTransportAsync(TransportControls control, string actionName, Func<Task<bool>> operation)

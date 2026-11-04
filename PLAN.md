@@ -81,6 +81,15 @@ User chose **Windows per-app volume** (Volume Mixer level of the playing app), n
 - Volume only. No audio capture (spec privacy rule still holds).
 - Notes: sessions are looked up on demand (target change; playback started, debounced 400 ms; flyout shown; session expired or disconnected), not via session-created notifications (unreliable when registered from the STA UI thread). External volume changes are followed through `IAudioSessionEvents` on the first matched session. A read-only probe confirmed Chrome's audio session runs under process `chrome`. Also fixed: `FlyoutViewModel.cs` had raw private-use glyph characters (from a tool), now `\uXXXX` escapes.
 
+### 7. App repeat for browsers (user request)
+User's idea: YouTube in a browser has no GSMTC repeat and ends its session when the video finishes, so restart it just before the end.
+- [x] When the player has no repeat but can seek (duration ≥ 2 s), the repeat button toggles off ↔ track, handled by the app
+- [x] While on and playing: a one-shot timer seeks to 0:00 at 0.5 s before the end (rescheduled on every timeline/state change and seek; 1 s cooldown against stale near-end updates); a failed seek turns it off with a status message
+- [x] Turns off when the source app changes or no session remains; the player's own repeat is always preferred
+- [x] Spec (repeat semantics), README updated
+- [x] Builds clean
+- [x] User test with YouTube in Brave: works
+
 ## Cannot be verified from WSL (user must test on Windows)
 
 Runtime window behavior, global hotkey, overlay over a borderless game, real Spotify / browser GSMTC sessions, seek/repeat support per source.
@@ -105,3 +114,4 @@ Runtime window behavior, global hotkey, overlay over a borderless game, real Spo
 - 2026-10-28: Released v0.1.0 (pre-release) on GitHub with `GameMusicFlyout-v0.1.0-win-x64.zip` (75.5 MB; built from 91f6202, tag on 3daae60). Release zips are kept outside the build mirror in `C:\Users\pcpc\source\GameMusicFlyout-release`. The user uploads releases via the web UI (no gh CLI).
 - 2026-10-28: Volume slider is always visible now (no hover). Fixed click-then-drag on the volume and seek sliders. User tested on Windows: works.
 - 2026-10-28: Built v0.1.1 release zip `GameMusicFlyout-v0.1.1-win-x64.zip` (75.7 MB, from 96f1806): always-visible volume slider, click-and-drag fix on both sliders. Saved in `C:\Users\pcpc\source\GameMusicFlyout-release`; the user uploads it via the web UI.
+- 2026-11-04: Step 7 (app repeat for browsers, user's idea) implemented; builds clean. User tested with YouTube in Brave: works.

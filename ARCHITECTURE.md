@@ -63,7 +63,8 @@ Use GSMTC repeat support rather than pretending a generic repeat command is alwa
 
 - Read `PlaybackInfo.AutoRepeatMode` and `PlaybackControls.IsRepeatEnabled`.
 - When repeat is enabled, cycle the supported `MediaPlaybackAutoRepeatMode` values (off, track, list) through `TryChangeAutoRepeatModeAsync` and reflect the resulting state visually.
-- If the session does not advertise repeat support, disable the repeat button and show a short tooltip such as “Repeat isn’t supported by this player.” Never emulate repeat by skipping tracks or restarting playback.
+- If the session does not advertise repeat support but can seek and has a known duration (e.g. YouTube in a browser), the app provides its own **repeat track**: the button toggles off ↔ track, and while on, the app seeks to 0:00 about 0.5 s before the end. It restarts early on purpose: browsers end their media session as soon as a video finishes, after which nothing can be controlled. This is the only allowed emulation: never emulate repeat by skipping tracks, and never emulate repeat list.
+- Otherwise, disable the repeat button and show a short tooltip such as “Repeat isn’t supported by this player.”
 
 ### Seek bar semantics
 
